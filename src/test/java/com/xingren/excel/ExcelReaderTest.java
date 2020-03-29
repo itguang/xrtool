@@ -15,6 +15,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -31,6 +32,7 @@ public class ExcelReaderTest {
     private static String employeeFile_Xls;
     private static String employeeEmptyFile_Xls;
     private static String employeeFile_1w_Xlsx;
+    private static String mult_sheet_Xlsx;
 
     @BeforeClass
     public static void before() throws UnsupportedEncodingException {
@@ -41,7 +43,7 @@ public class ExcelReaderTest {
         employeeEmptyFile_Xls = URLDecoder.decode(classLoader.getResource("read/空员工数据.xls").getPath(), "utf-8");
         employeeFile_Xlsx = URLDecoder.decode(classLoader.getResource("read/员工数据.xlsx").getPath(), "utf-8");
         employeeFile_1w_Xlsx = URLDecoder.decode(classLoader.getResource("read/员工数据_1w.xlsx").getPath(), "utf-8");
-
+        mult_sheet_Xlsx = URLDecoder.decode(classLoader.getResource("read/多sheet导入.xlsx").getPath(), "utf-8");
     }
 
     @Test
@@ -136,4 +138,19 @@ public class ExcelReaderTest {
 
     }
 
+    @Test
+    public void test_mult_sheet() throws FileNotFoundException{
+        InputStream fis = new FileInputStream(mult_sheet_Xlsx);
+        try(ExcelReader reader = ExcelReader.read(fis)) {
+            List<Book> books = reader.toPojo(0, 0, Book.class);
+            List<Book> empty = reader.toPojo(1, 0, Book.class);
+            List<Employee> employees = reader.toPojo(2, 1, Employee.class);
+            Assert.assertEquals(books.size(), 2);
+            Assert.assertEquals(empty.size(), 0);
+            Assert.assertEquals(employees.size(), 2);
+            reader.toPojo(-1, 0, Book.class);
+        } catch (Exception e) {
+            Assert.assertTrue(e instanceof InvalidParameterException);
+        }
+    }
 }

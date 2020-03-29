@@ -10,8 +10,10 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,7 +21,7 @@ import java.util.List;
  * @author guang
  * @since 2020/1/17 2:42 下午
  */
-public class ExcelReader {
+public class ExcelReader implements Closeable {
 
     /**
      * 从第几行开始读取(一般用来跳过 sheetHeader )
@@ -30,6 +32,8 @@ public class ExcelReader {
      * 读取第几个Sheet
      */
     private int sheetNum = 0;
+
+    private int sheetSize = 0;
 
     private Workbook workbook;
 
@@ -42,6 +46,7 @@ public class ExcelReader {
             } else {
                 workbook = new XSSFWorkbook(inputStream);
             }
+            this.sheetSize = workbook.getNumberOfSheets();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -67,6 +72,9 @@ public class ExcelReader {
         Sheet sheet = workbook.getSheetAt(sheetNum);
         int lastRowIndex = sheet.getLastRowNum();
         Row columnTitleRow = sheet.getRow(columnNameRowNum++);
+        if (columnTitleRow == null) {
+            return new ArrayList<>();
+        }
         Row lastRow = sheet.getRow(lastRowIndex);
         if (columnTitleRow.getLastCellNum() < lastRow.getLastCellNum()) {
             throw new ExcelException("解析 Excel 失败,检查 columnNameRowNum 是否设置正确");
@@ -91,6 +99,13 @@ public class ExcelReader {
         return rowDataList;
     }
 
+    public <T> List<T> toPojo(Integer sheetNum, Integer columnNameRowNum, Class<T> clazz) {
+        this.sheetNum = sheetNum;
+        this.columnNameRowNum = columnNameRowNum;
+        check();
+        return toPojo(clazz);
+    }
+
     private String[] getColumnNames(Row columnTitleRow) {
         String[] columnNames = new String[columnTitleRow.getLastCellNum() + 1];
         for (int cellNum = columnTitleRow.getFirstCellNum(); cellNum < columnTitleRow.getLastCellNum(); cellNum++) {
@@ -100,4 +115,17 @@ public class ExcelReader {
         return columnNames;
     }
 
+    @Override
+    public void close() throws IOException {
+        this.workbook.close();
+    }
+
+    private void check() {
+        if (sheetNum < 0 || sheetNum >= sheetSize) {
+            throw new InvalidParameterException("非法的sheetNum：" + sheetNum);
+        }
+        if (columnNameRowNum < 0) {
+            throw new InvalidParameterException("非法的columnNameRowNum：" + columnNameRowNum);
+        }
+    }
 }
